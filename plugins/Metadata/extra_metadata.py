@@ -3,16 +3,17 @@ This has some extra metadata plugin utilities. That use extra dependencies or
 are specific to my own setup
 """
 
-import magic
-import re
+import logging
 import os
+import re
+
+import magic
 from batchpynamer.data.metadata_data_tools import meta_img_get
 from batchpynamer.data.rename_data_tools import rename_ext_split_action
-from batchpynamer.plugins.plugins_base import BasePlugin
 from batchpynamer.plugins.plugins.Metadata.metadata import (
     _MetadataPluginBaseClass,
 )
-import logging
+from batchpynamer.plugins.plugins_base import BasePlugin
 
 # A bit specific to how i order my music
 RE_DISC_NUMER = re.compile(r".+\/Disc\s(\d+)")
