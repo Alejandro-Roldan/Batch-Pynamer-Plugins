@@ -1,2 +1,2 @@
-python-magic >= 0.4.*
+python-magic >= 0.4.0
 batchpynamer @ git+https://github.com/Alejandro-Roldan/Batch-Pynamer.git

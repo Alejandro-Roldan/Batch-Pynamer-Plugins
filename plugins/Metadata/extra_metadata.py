@@ -17,9 +17,7 @@ from batchpynamer.plugins.plugins_base import BasePlugin
 
 # A bit specific to how i order my music
 RE_DISC_NUMER = re.compile(r".+\/Disc\s(\d+)")
-RE_ALBUM_NAME = re.compile(
-    r".+?(\d{4})\s-\s(.+?)(?>\[(?>Live|EP|Single|mp3).+)*$"
-)
+RE_ALBUM_NAME = re.compile(r".+?(\d{4})\s-\s([^\/]+)")
 RE_ARTIST = re.compile(r".+\/([^\/]+)\/\d{4}")
 
 
@@ -58,7 +56,7 @@ class ArtistFromDirectory(_MetadataPluginBaseClass):
         try:
             artist = RE_ARTIST.match(item)[1]
         except TypeError:
-            logging.warning(
+            logging.info(
                 f'Couldn\'t change "artist" metadata for "{item}". F'
                 "ailed regex match"
             )
@@ -84,11 +82,17 @@ class YearAndAlbumFromDirectory(_MetadataPluginBaseClass):
         try:
             year, album = RE_ALBUM_NAME.match(item).groups()
         except AttributeError:
-            logging.warning(
+            logging.info(
                 f'Couldn\'t change "year" and "album" metadata for "{item}". F'
                 "ailed regex match"
             )
         else:
+            album = (
+                album.replace("[EP]", "")
+                .replace("[Single]", "")
+                .replace("[Live]", "")
+                .replace("[mp3]", "")
+            )
             meta_audio["album"] = album.strip()
             meta_audio["date"] = year.strip()
 
@@ -105,10 +109,12 @@ class SetDiscNumber(_MetadataPluginBaseClass):
         try:
             disc_num = RE_DISC_NUMER.match(item)[1]
         except TypeError:
-            logging.warning(
-                f'Couldn\'t change "discnumber" metadata for "{item}". Failed '
-                "regex match"
-            )
+            logging.info(f'Couldn\'t find "discnumber" metadata for "{item}"')
+            # Try to remove the discnumber key if present
+            try:
+                meta_audio.pop("discnumber")
+            except KeyError:
+                pass
         else:
             meta_audio["discnumber"] = disc_num
 
@@ -169,21 +175,29 @@ class SaveMetadataImg(BasePlugin):
     """
 
     short_desc = "Save metadata Image"
+    finished_msg = "Saved metadata image to file"
 
-    def run(self, item, **kwargs):
-        img = meta_img_get(item)
+    def run(self, item):
+        # Extract image and save it if theres one
+        try:
+            img = meta_img_get(item)
+        except (IndexError, AttributeError):
+            self.finished_msg = f'No metadata image in "{item}"'
+        else:
+            # Get mime type
+            mime = magic.from_buffer(img, mime=True)
+            # Extract ext from it
+            _, ext = mime.split("/")
+            ext = ext.lower().replace("jpeg", "jpg")
 
-        mime = magic.from_buffer(img, mime=True)
-        _, ext = mime.split("/")
-        ext = ext.lower().replace("jpeg", "jpg")
+            # Generate a non-existing file path
+            i = 0
+            while True:
+                save_path = os.path.dirname(item) + f"/cover_{i}.{ext}"
+                if not os.path.exists(save_path):
+                    break
+                i += 1
 
-        i = 0
-        while True:
-            save_path = os.path.dirname(item) + f"/cover_{i}.{ext}"
-            if not os.path.exists(save_path):
-                break
-            i += 1
-
-        # Open file as write bytes mode
-        with open(save_path, "wb") as f:
-            f.write(img)
+            # Open file as write bytes mode
+            with open(save_path, "wb") as f:
+                f.write(img)
